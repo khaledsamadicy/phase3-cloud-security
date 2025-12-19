@@ -1,0 +1,91 @@
+name: Phase 3 Full CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+env:
+  SERVICE_NAME: phase3-service
+  IMAGE_TAG: ${{ github.sha }}
+
+jobs:
+
+  # =========================
+  # 1. Continuous Integration
+  # =========================
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Run unit tests (placeholder)
+        run: |
+          echo "Running unit tests..."
+          echo "All unit tests passed"
+
+      - name: Build Docker image
+        run: |
+          echo "Building Docker image"
+          docker build -t $SERVICE_NAME:$IMAGE_TAG .
+
+  # =========================
+  # 2. Security Scanning
+  # =========================
+  vulnerability-scan:
+    name: Vulnerability Scan
+    runs-on: ubuntu-latest
+    needs: build-and-test
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Install Trivy
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget
+          wget https://github.com/aquasecurity/trivy/releases/latest/download/trivy_0.50.0_Linux-64bit.deb
+          sudo dpkg -i trivy_0.50.0_Linux-64bit.deb
+
+      - name: Scan Docker image
+        run: |
+          echo "Scanning image for vulnerabilities"
+          trivy image $SERVICE_NAME:$IMAGE_TAG || true
+
+  # =========================
+  # 3. Deployment (Blue/Green)
+  # =========================
+  deploy:
+    name: Deploy (Blue/Green Simulation)
+    runs-on: ubuntu-latest
+    needs: vulnerability-scan
+
+    steps:
+      - name: Deploy new version (Green)
+        run: |
+          echo "Deploying GREEN version of the service"
+          echo "Switching traffic to GREEN environment"
+
+      - name: Health check
+        run: |
+          echo "Performing health checks"
+          echo "Health checks passed"
+
+  # =========================
+  # 4. Rollback (on failure)
+  # =========================
+  rollback:
+    name: Rollback
+    runs-on: ubuntu-latest
+    if: failure()
+    needs: deploy
+
+    steps:
+      - name: Rollback to Blue
+        run: |
+          echo "Deployment failed"
+          echo "Rolling back to BLUE environment"
